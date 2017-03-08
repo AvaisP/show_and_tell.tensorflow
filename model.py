@@ -1,16 +1,16 @@
 #-*- coding: utf-8 -*-
 import math
 import os
-import tensorflow as tf
+from cnn_util import *
 import numpy as np
+import matplotlib
+import tensorflow as tf
 import pandas as pd
 import cPickle
-
 from tensorflow.models.rnn import rnn_cell
 import tensorflow.python.platform
 from keras.preprocessing import sequence
 from collections import Counter
-from cnn_util import *
 
 class Caption_Generator():
     def init_weight(self, dim_in, dim_out, name=None, stddev=1.0):
@@ -275,6 +275,7 @@ def read_image(path):
 
 
 def test_tf(test_image_path=None, model_path='./models/model-72', maxlen=30):
+    
     with open(vgg_path) as f:
         fileContent = f.read()
         graph_def = tf.GraphDef()
@@ -282,13 +283,11 @@ def test_tf(test_image_path=None, model_path='./models/model-72', maxlen=30):
 
     images = tf.placeholder("float32", [1, 224, 224, 3])
     tf.import_graph_def(graph_def, input_map={"images":images})
-
+    
     ixtoword = np.load('./data/ixtoword.npy').tolist()
     n_words = len(ixtoword)
-
     image_val = read_image(test_image_path)
     sess = tf.InteractiveSession()
-
     caption_generator = Caption_Generator(
            dim_image=dim_image,
            dim_hidden=dim_hidden,
@@ -296,15 +295,15 @@ def test_tf(test_image_path=None, model_path='./models/model-72', maxlen=30):
            batch_size=batch_size,
            n_lstm_steps=maxlen,
            n_words=n_words)
-
+    
     graph = tf.get_default_graph()
-    fc7 = sess.run(graph.get_tensor_by_name("import/fc7_relu:0"), feed_dict={images:image_val})
+    #print [n.name for n in tf.get_default_graph().as_graph_def().node]
+    fc7 = sess.run(graph.get_tensor_by_name("import/Relu_1:0"), feed_dict={images:image_val})
 
     fc7_tf, generated_words = caption_generator.build_generator(maxlen=maxlen)
-
     saver = tf.train.Saver()
     saver.restore(sess, model_path)
-
+    
     generated_word_index= sess.run(generated_words, feed_dict={fc7_tf:fc7})
     generated_word_index = np.hstack(generated_word_index)
 
@@ -313,4 +312,4 @@ def test_tf(test_image_path=None, model_path='./models/model-72', maxlen=30):
 
     generated_words = generated_words[:punctuation]
     generated_sentence = ' '.join(generated_words)
-    print generated_sentence
+    return generated_sentence
